@@ -1,7 +1,10 @@
 {% extends "global/pages/base.html" %}
 
-{% block title %}Home{% endblock title %}
+{% block title %}Dashboard Estoque{% endblock title %}
 
 {% block content %}
-    <h2>Hello world!</h2>
+    <div class="container-fluid pt-3">
+        <h1 class="h2 mb-3">Dashboard Estoque</h1>
+        {% include "warehouse/partials/dashboard.html" %}
+    </div>
 {% endblock content %}

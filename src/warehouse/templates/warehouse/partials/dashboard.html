@@ -1,0 +1,90 @@
+{% load static %}
+{% comment %}
+This template displays a visualization of warehouse items.
+It assumes a context variable 'items' which is a queryset of Item objects.
+{% endcomment %}
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Tipos de Itens</h5>
+                <p class="card-text fs-4 fw-bold">{{ items|length }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Quantidade Unidades</h5>
+                <p class="card-text fs-4 fw-bold" id="total-quantity">0</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title">Valor de Mercado Total</h5>
+                <p class="card-text fs-4 fw-bold" id="total-market-value">0.00</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-4">
+        <canvas id="item-type-chart"></canvas>
+    </div>
+    <div class="col-md-8">
+        <canvas id="manufacturer-chart"></canvas>
+    </div>
+</div>
+
+<h3 class="mt-4">Detalhes</h3>
+<div class="table-responsive mt-2">
+    <table class="table table-striped table-hover">
+        <thead class="table-dark">
+            <tr>
+                <th>Nome</th>
+                <th>Tipo</th>
+                <th>Fabricante</th>
+                <th>Modelo</th>
+                <th>Quantidade</th>
+                <th>Valor de Mercado (unit)</th>
+                <th>Descrição</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in items %}
+            <tr>
+                <td>{{ item.name }}</td>
+                <td>{{ item.type }}</td>
+                <td>{{ item.manufacturer.name }}</td>
+                <td>{{ item.model }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>R${{ item.market_value }}</td>
+                <td>{{ item.description|default:"-" }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" class="text-center">No items found.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script id="items-data" type="application/json">
+    [
+        {% for item in items %}
+        {
+            "type": "{{ item.type }}",
+            "manufacturer": "{{ item.manufacturer.name }}",
+            "quantity": {{ item.quantity }},
+            "market_value": "{{ item.market_value }}"
+        }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+</script>
+<script src="{% static 'warehouse/js/dashboard.js' %}"></script>

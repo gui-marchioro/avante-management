@@ -1,3 +1,13 @@
+.page-container {
+    display: flex;
+    flex-direction: column;
+    min-height: 100vh;
+}
+
+.main-container {
+    flex-grow: 1;
+}
+
 .sidebar {
     width: 250px;
     background-color: darkblue;
@@ -5,7 +15,6 @@
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
-    height: 100vh;
     padding-top: 1rem;
 }
 .sidebar a {
@@ -19,6 +28,7 @@
 }
 .main-content-container {
     padding: 20px;
+    width: 100%;
 }
 
 footer {
