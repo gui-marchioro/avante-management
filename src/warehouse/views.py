@@ -3,4 +3,5 @@ from django.shortcuts import render
 
 
 def home(request: HttpRequest) -> HttpResponse:
-    return render(request, 'warehouse/pages/home.html')
+    return render(request, 'warehouse/pages/home.html', {
+        'title': 'Home', })

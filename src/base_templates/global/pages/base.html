@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    {% include "global/partials/head.html" %}
+    <title>{% block title %}{% endblock title %}</title>
+</head>
+
+<body>
+    <main class="d-flex flex-nowrap">
+        {% include "global/partials/sidebar.html" %}
+        <div class="main-content-container">
+            <h1>{{ title }}</h1>
+            {% block content %}{% endblock content %}
+        </div>
+    </main>
+
+    {% include "global/partials/footer.html" %}
+</body>
+
+</html>
