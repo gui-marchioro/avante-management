@@ -1,0 +1,39 @@
+{% extends "global/pages/base_clean.html" %}
+
+{% block title %}Login{% endblock title %}
+
+{% block content %}
+<div class="container d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+    <div class="card shadow-lg p-4 rounded-4" style="width: 100%; max-width: 400px;">
+        <h3 class="text-center mb-4">Login</h3>
+
+        {% if form.errors %}
+            <div class="alert alert-danger">Your username and password didn't match. Please try again.</div>
+        {% endif %}
+
+        {% if next %}
+            {% if user.is_authenticated %}
+            <p>Your account doesn't have access to this page. To proceed,
+            please login with an account that has access.</p>
+            {% else %}
+            <p>Please login to see this page.</p>
+            {% endif %}
+        {% endif %}
+
+        <form method="post" action="{% url 'users:login' %}">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="{{ form.username.name }}" class="form-label">{{ form.username.label_tag }}</label>
+                <input type="text" name="{{ form.username.name }}" id="{{ form.username.name }}" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label for="{{ form.password.name }}" class="form-label">{{ form.password.label_tag }}</label>
+                <input type="password" name="{{ form.password.name }}" id="{{ form.password.name }}" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100 rounded-pill">Submit</button>
+            <input type="hidden" name="next" value="{{ next }}">
+        </form>
+    </div>
+</div>
+
+{% endblock content %}

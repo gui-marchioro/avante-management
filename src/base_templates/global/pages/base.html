@@ -7,11 +7,14 @@
 </head>
 
 <body class="page-container">
-    <main class="d-flex flex-nowrap main-container">
-        {% include "global/partials/sidebar.html" %}
-        <div class="main-content-container">
-            <h1>{{ title }}</h1>
-            {% block content %}{% endblock content %}
+    <main>
+        {% include "global/partials/header.html" %}
+        <div class="d-flex flex-nowrap main-container">
+            {% include "global/partials/sidebar.html" %}
+            <div class="main-content-container">
+                <h1>{{ title }}</h1>
+                {% block content %}{% endblock content %}
+            </div>
         </div>
     </main>
 
