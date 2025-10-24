@@ -9,3 +9,10 @@ def home(request: HttpRequest) -> HttpResponse:
     items = Item.objects.all()
     return render(request, 'warehouse/pages/home.html', {
         'title': 'Início', 'items': items})
+
+
+@login_required
+def items(request: HttpRequest) -> HttpResponse:
+    items = Item.objects.all()
+    return render(request, 'warehouse/pages/items.html', {
+        'title': 'Itens', 'items': items})

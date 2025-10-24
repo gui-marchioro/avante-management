@@ -40,38 +40,7 @@ This template displays a visualization of warehouse items.
 </div>
 
 <h3 class="mt-4">Detalhes</h3>
-<div class="table-responsive mt-2">
-    <table class="table table-striped table-hover">
-        <thead class="table-dark">
-            <tr>
-                <th>Nome</th>
-                <th>Tipo</th>
-                <th>Fabricante</th>
-                <th>Modelo</th>
-                <th>Quantidade</th>
-                <th>Valor de Mercado (unit)</th>
-                <th>Descrição</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for item in items %}
-            <tr>
-                <td>{{ item.name }}</td>
-                <td>{{ item.type }}</td>
-                <td>{{ item.manufacturer.name }}</td>
-                <td>{{ item.model }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>R${{ item.market_value }}</td>
-                <td>{{ item.description|default:"-" }}</td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="7" class="text-center">No items found.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-</div>
+{% include 'warehouse/partials/item_list.html' %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script id="items-data" type="application/json">

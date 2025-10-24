@@ -1,0 +1,9 @@
+{% extends "global/pages/base.html" %}
+
+{% block title %}Itens Estoque{% endblock title %}
+
+{% block content %}
+    <div class="container-fluid pt-3">
+        {% include "warehouse/partials/item_list.html" %}
+    </div>
+{% endblock content %}
