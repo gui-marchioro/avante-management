@@ -10,30 +10,22 @@
 
 .sidebar {
     width: 250px;
-    background-color: darkblue;
-    color: white;
+    background-color: var(--bs-secondary-bg);
     flex-shrink: 0;
     display: flex;
     flex-direction: column;
     padding-top: 1rem;
+    border-right: 2px solid var(--bs-border-color);
 }
 .sidebar a {
-    color: white;
     text-decoration: none;
     padding: 10px 15px;
     display: block;
 }
 .sidebar a:hover {
-    background-color: blue;
+    background-color: var(--bs-tertiary-bg);
 }
 .main-content-container {
     padding: 20px;
     width: 100%;
-}
-
-footer {
-    background-color: darkgray;
-    text-align: center;
-    padding: 1rem;
-    border-top: 1px white solid;
 }
