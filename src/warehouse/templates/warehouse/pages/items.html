@@ -3,6 +3,9 @@
 {% block title %}Itens Estoque{% endblock title %}
 
 {% block content %}
+    <div>
+        <a href={% url "warehouse:create_item" %} class="btn btn-primary mb-3">Novo Item</a>
+    </div>
     <div class="container-fluid pt-3">
         {% include "warehouse/partials/item_list.html" %}
     </div>
