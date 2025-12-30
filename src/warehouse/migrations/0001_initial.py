@@ -18,7 +18,7 @@ class Migration(migrations.Migration):
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
                 ('name', models.CharField(max_length=100)),
-                ('type', models.CharField(choices=[(warehouse.models.ItemType['PLC'], 'plc'), (warehouse.models.ItemType['SENSOR'], 'sensor'), (warehouse.models.ItemType['ACTUATOR'], 'actuator'), (warehouse.models.ItemType['HMI'], 'hmi'), (warehouse.models.ItemType['PLC_EXPANSION'], 'plc_expansion')], max_length=20)),
+                ('type', models.CharField(choices=[('plc', 'plc'), ('sensor', 'sensor'), ('actuator', 'actuator'), ('hmi', 'hmi'), ('plc_expansion', 'plc_expansion')], max_length=20)),
                 ('model', models.CharField(max_length=100)),
                 ('quantity', models.IntegerField()),
                 ('market_value', models.DecimalField(decimal_places=2, max_digits=10)),
@@ -36,7 +36,7 @@ class Migration(migrations.Migration):
             name='ItemUnit',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('state', models.CharField(choices=[(warehouse.models.ItemState['NEW'], 'new'), (warehouse.models.ItemState['USED'], 'used'), (warehouse.models.ItemState['DAMAGED'], 'damaged'), (warehouse.models.ItemState['SOLD'], 'sold')], max_length=10)),
+                ('state', models.CharField(choices=[('new', 'new'), ('used', 'used'), ('damaged', 'damaged'), ('sold', 'sold')], max_length=10)),
                 ('remark', models.TextField(blank=True, null=True)),
                 ('item', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='warehouse.item')),
             ],

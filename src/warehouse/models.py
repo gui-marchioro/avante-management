@@ -2,14 +2,6 @@ from enum import Enum
 from django.db import models
 
 
-class ItemType(Enum):
-    PLC = "plc"
-    SENSOR = "sensor"
-    ACTUATOR = "actuator"
-    HMI = "hmi"
-    PLC_EXPANSION = "plc_expansion"
-
-
 class ItemState(Enum):
     NEW = "new"
     USED = "used"
@@ -17,8 +9,21 @@ class ItemState(Enum):
     SOLD = "sold"
 
 
+class ItemType(models.Model):
+    name = models.CharField(max_length=50)
+
+    class Meta:
+        ordering = ["name"]
+
+    def __str__(self):
+        return self.name
+
+
 class Manufacturer(models.Model):
     name = models.CharField(max_length=100)
+
+    class Meta:
+        ordering = ["name"]
 
     def __str__(self):
         return self.name
@@ -26,8 +31,7 @@ class Manufacturer(models.Model):
 
 class Item(models.Model):
     name = models.CharField(max_length=100)
-    type = models.CharField(max_length=20, choices=[
-                            (tag.value, tag.value) for tag in ItemType])
+    type = models.ForeignKey(ItemType, on_delete=models.CASCADE)
     manufacturer = models.ForeignKey(Manufacturer, on_delete=models.CASCADE)
     model = models.CharField(max_length=100)
     quantity = models.IntegerField()
