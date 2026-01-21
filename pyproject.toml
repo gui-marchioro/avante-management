@@ -1,0 +1,39 @@
+[project]
+name = "avante-management"
+version = "0.1.0"
+description = "ERP system for small and medium enterprises"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "django>=6.0.1",
+    "django-extensions>=4.1",
+]
+
+[tool.pylint]
+disable = "C0114,C0115,C0116"
+load-plugins = "pylint_django"
+django-settings-module = "core.settings"
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "core.settings"
+python_files = [
+    "test_*.py",
+    "*_test.py",
+]
+pythonpath = ["src"]
+
+[tool.mypy]
+plugins = "mypy_django_plugin.main"
+mypy_path = "src"
+
+[tool.django-stubs]
+django_settings_module = "core.settings"
+
+[dependency-groups]
+dev = [
+    "django-stubs[compatible-mypy]>=5.2.9",
+    "mypy>=1.19.1",
+    "pylint>=4.0.4",
+    "pylint-django>=2.7.0",
+    "pytest>=9.0.2",
+]
