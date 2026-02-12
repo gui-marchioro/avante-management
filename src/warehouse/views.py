@@ -13,7 +13,7 @@ def home(request: HttpRequest) -> HttpResponse:
     items = Item.objects.filter(company=company)
     if request.user.has_perm('warehouse.view_financial_dashboard'):
         return render(request, 'warehouse/pages/home.html',
-                      {'title': 'Início', 'items': items})
+                      {'title': 'Estoque', 'items': items})
     else:
         return redirect('warehouse:items')
 

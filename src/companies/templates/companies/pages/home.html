@@ -5,10 +5,18 @@
 {% block content %}
 <div class="container-fluid pt-2">
     <div class="card mb-4">
-        <div class="card-body">
-            <h2 class="h4 mb-2">Olá, {{ user.first_name|default:user.username }}!</h2>
-            <p class="mb-1"><strong>Empresa:</strong> {{ company.name }}</p>
-            <p class="mb-0"><strong>CNPJ:</strong> {{ company.cnpj|default:"-" }}</p>
+        <div class="card-body d-flex justify-content-between align-items-start gap-3">
+            <div>
+                <h2 class="h4 mb-2">Olá, {{ user.first_name|default:user.username }}!</h2>
+                <p class="mb-1"><strong>Empresa:</strong> {{ company.name }}</p>
+                <p class="mb-0"><strong>CNPJ:</strong> {{ company.cnpj|default:"-" }}</p>
+            </div>
+            {% if perms.companies.add_employee and perms.companies.manage_company_features %}
+                <a href="{% url 'companies:company_configuration' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-gear-fill me-1"></i>
+                    Configurações
+                </a>
+            {% endif %}
         </div>
     </div>
 
@@ -45,6 +53,36 @@
         {% empty %}
             <p class="text-muted">No features configured.</p>
         {% endfor %}
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-body">
+            <h3 class="h5 mb-3">Funcionários cadastrados</h3>
+            <div class="table-responsive">
+                <table class="table table-sm table-striped mb-0">
+                    <thead>
+                        <tr>
+                            <th>Nome</th>
+                            <th>Usuário</th>
+                            <th>Email</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for employee in employees %}
+                            <tr>
+                                <td>{{ employee.user.first_name|default:"-" }} {{ employee.user.last_name|default:"" }}</td>
+                                <td>{{ employee.user.username }}</td>
+                                <td>{{ employee.user.email|default:"-" }}</td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="3" class="text-muted">No employees registered.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
     </div>
 </div>
 {% endblock content %}

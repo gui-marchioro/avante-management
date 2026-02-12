@@ -1,5 +1,4 @@
 <div class="sidebar">
-    <a href="{% url 'companies:home' %}" class="text-dark">Home</a>
     {% for feature in sidebar_features %}
         <a href="{{ feature.url }}" class="text-dark">{{ feature.name }}</a>
     {% empty %}

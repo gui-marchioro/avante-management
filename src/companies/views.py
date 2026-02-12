@@ -5,8 +5,8 @@ from django.http import HttpRequest, HttpResponse
 from django.urls import NoReverseMatch, reverse
 from .feature_routes import FEATURE_ROUTE_NAMES
 from django.shortcuts import render, redirect
-from .forms import CompanySignupForm, EmployeeRegisterForm
-from .models import CompanyFeature, Feature, get_user_company
+from .forms import CompanySignupForm, CompanyUpdateForm, EmployeeRegisterForm
+from .models import CompanyFeature, Feature, get_user_company, Employee
 
 
 @login_required
@@ -53,6 +53,7 @@ def home(request: HttpRequest) -> HttpResponse:
             "title": "Início",
             "company": company,
             "feature_cards": feature_cards,
+            "employees": company.employees.select_related("user").all(),
         },
     )
 
@@ -75,25 +76,6 @@ def signup_company(request: HttpRequest) -> HttpResponse:
         "companies/pages/signup_company.html",
         {"title": "Criar Empresa", "form": form},
     )
-
-
-@login_required
-@permission_required("companies.add_employee", raise_exception=True)
-def register_employee(request: HttpRequest) -> HttpResponse:
-    company = get_user_company(request.user)
-    if company is None:
-        raise PermissionDenied("User is not associated with a company.")
-
-    if request.method == "POST":
-        form = EmployeeRegisterForm(request.POST)
-        if form.is_valid():
-            form.save(company=company)
-            return redirect("companies:register_employee")
-    else:
-        form = EmployeeRegisterForm()
-
-    return render(request, "companies/pages/register_employee.html", {"form": form})
-
 
 @login_required
 @permission_required("companies.manage_company_features", raise_exception=True)
@@ -118,4 +100,65 @@ def company_features(request: HttpRequest) -> HttpResponse:
         request,
         "companies/pages/company_features.html",
         {"grants": grants, "company": company},
+    )
+
+
+@login_required
+@permission_required("companies.add_employee", raise_exception=True)
+@permission_required("companies.manage_company_features", raise_exception=True)
+def company_configuration(request: HttpRequest) -> HttpResponse:
+    company = get_user_company(request.user)
+    if company is None:
+        raise PermissionDenied("User is not associated with a company.")
+
+    grants = list(
+        CompanyFeature.objects.filter(company=company)
+        .select_related("feature")
+        .order_by("feature__code")
+    )
+    employees = company.employees.select_related("user").order_by("user__username")
+
+    company_form = CompanyUpdateForm(instance=company)
+    employee_form = EmployeeRegisterForm()
+
+    if request.method == "POST":
+        action = request.POST.get("action")
+
+        if action == "update_company":
+            company_form = CompanyUpdateForm(request.POST, instance=company)
+            if company_form.is_valid():
+                company_form.save()
+                return redirect("companies:company_configuration")
+
+        elif action == "toggle_features":
+            for grant in grants:
+                grant.enabled = f"feature_{grant.id}" in request.POST
+            CompanyFeature.objects.bulk_update(grants, ["enabled", "updated_at"])
+            return redirect("companies:company_configuration")
+
+        elif action == "add_employee":
+            employee_form = EmployeeRegisterForm(request.POST)
+            if employee_form.is_valid():
+                employee_form.save(company=company)
+                return redirect("companies:company_configuration")
+
+        elif action == "remove_employee":
+            employee_id = request.POST.get("employee_id")
+            if employee_id:
+                employee = company.employees.filter(pk=employee_id).first()
+                if employee and employee.user_id != request.user.id:
+                    employee.user.delete()
+            return redirect("companies:company_configuration")
+
+    return render(
+        request,
+        "companies/pages/company_configuration.html",
+        {
+            "title": "Configurações da Empresa",
+            "company": company,
+            "company_form": company_form,
+            "employee_form": employee_form,
+            "employees": employees,
+            "grants": grants,
+        },
     )

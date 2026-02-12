@@ -81,6 +81,33 @@ class EmployeeRegisterForm(forms.ModelForm):  # type: ignore
         return user
 
 
+class CompanyUpdateForm(forms.ModelForm):  # type: ignore
+    cnpj = forms.CharField(max_length=18, required=False, label="CNPJ")
+
+    class Meta:
+        model = Company
+        fields = ["name", "cnpj"]
+
+    def clean_name(self):
+        return self.cleaned_data["name"].strip()
+
+    def clean_cnpj(self):
+        raw_cnpj = (self.cleaned_data.get("cnpj") or "").strip()
+        if raw_cnpj == "":
+            return None
+
+        cnpj = "".join(char for char in raw_cnpj if char.isdigit())
+        if len(cnpj) != 14:
+            raise ValidationError("CNPJ must contain 14 digits.")
+
+        company_qs = Company.objects.filter(cnpj=cnpj)
+        if self.instance.pk:
+            company_qs = company_qs.exclude(pk=self.instance.pk)
+        if company_qs.exists():
+            raise ValidationError("A company with this CNPJ already exists.")
+        return cnpj
+
+
 class CompanySignupForm(forms.Form):
     company_name = forms.CharField(max_length=120, label="Empresa")
     cnpj = forms.CharField(max_length=18, label="CNPJ")

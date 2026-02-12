@@ -87,47 +87,6 @@ class EmployeeRegisterFormTests(TestCase):
         self.assertEqual(employee.company, company)
 
 
-class EmployeeRegisterViewTests(TestCase):
-    def setUp(self) -> None:
-        self.company = Company.objects.create(name="Tenant Co", cnpj="12345678000199")
-        self.admin_user = User.objects.create_user(
-            username="tenant-admin",
-            password="StrongPassword1",
-        )
-        Employee.objects.create(user=self.admin_user, company=self.company)
-        self.admin_user.user_permissions.add(
-            Permission.objects.get(
-                content_type__app_label="companies",
-                codename="add_employee",
-            )
-        )
-
-    def test_anonymous_user_cannot_access_register_view(self) -> None:
-        response = self.client.get(reverse("companies:register_employee"))
-        self.assertEqual(response.status_code, 302)
-        self.assertIn(reverse("companies:login"), response.url)
-
-    def test_company_admin_registers_employee_for_own_company(self) -> None:
-        self.client.login(username="tenant-admin", password="StrongPassword1")
-        response = self.client.post(
-            reverse("companies:register_employee"),
-            data={
-                "first_name": "Joao",
-                "last_name": "Silva",
-                "username": "joao",
-                "email": "joao@example.com",
-                "password": "StrongPassword1",
-                "password2": "StrongPassword1",
-            },
-        )
-
-        self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("companies:register_employee"))
-        created_user = User.objects.get(username="joao")
-        employee = Employee.objects.get(user=created_user)
-        self.assertEqual(employee.company, self.company)
-
-
 class CompanyFeatureTests(TestCase):
     def setUp(self) -> None:
         self.company = Company.objects.create(name="Feature Co", cnpj="11111111000111")
@@ -254,12 +213,29 @@ class CompanyHomeViewTests(TestCase):
             defaults={"enabled": True},
         )
 
+        self.employee_user = User.objects.create_user(
+            username="operator-1",
+            first_name="Carlos",
+            last_name="Silva",
+            email="carlos@example.com",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.employee_user, company=self.company)
+
     def test_homepage_shows_company_info(self) -> None:
         response = self.client.get(reverse("companies:home"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Helena")
         self.assertContains(response, "Home Co")
         self.assertContains(response, "44444444000144")
+
+    def test_homepage_shows_company_employee_list(self) -> None:
+        response = self.client.get(reverse("companies:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Funcionários cadastrados")
+        self.assertContains(response, "home-admin")
+        self.assertContains(response, "operator-1")
+        self.assertContains(response, "Carlos")
 
     def test_homepage_has_enabled_and_disabled_feature_buttons(self) -> None:
         auth_feature, _ = Feature.objects.get_or_create(
@@ -282,3 +258,83 @@ class CompanyHomeViewTests(TestCase):
         response = self.client.get(reverse("companies:home"))
         self.assertContains(response, "Companies")
         self.assertNotContains(response, reverse("warehouse:home"))
+
+
+class CompanyConfigurationViewTests(TestCase):
+    def setUp(self) -> None:
+        self.company = Company.objects.create(name="Config Co", cnpj="55555555000155")
+        self.admin_user = User.objects.create_user(
+            username="config-admin",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.admin_user, company=self.company)
+        self.admin_user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="add_employee",
+            ),
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="manage_company_features",
+            ),
+        )
+        self.client.login(username="config-admin", password="StrongPassword1")
+
+        warehouse_feature, _ = Feature.objects.get_or_create(
+            code="warehouse",
+            defaults={"name": "Warehouse"},
+        )
+        self.grant = CompanyFeature.objects.update_or_create(
+            company=self.company,
+            feature=warehouse_feature,
+            defaults={"enabled": True},
+        )[0]
+
+    def test_company_configuration_page_loads(self) -> None:
+        response = self.client.get(reverse("companies:company_configuration"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Informações da empresa")
+        self.assertContains(response, "Features da empresa")
+        self.assertContains(response, "Funcionários")
+
+    def test_company_configuration_updates_company_features_and_employees(self) -> None:
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={"action": "update_company", "name": "Config Co Updated", "cnpj": "55.555.555/0001-55"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.company.refresh_from_db()
+        self.assertEqual(self.company.name, "Config Co Updated")
+        self.assertEqual(self.company.cnpj, "55555555000155")
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={"action": "toggle_features"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.grant.refresh_from_db()
+        self.assertFalse(self.grant.enabled)
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={
+                "action": "add_employee",
+                "first_name": "Julia",
+                "last_name": "Santos",
+                "username": "julia",
+                "email": "julia@example.com",
+                "password": "StrongPassword1",
+                "password2": "StrongPassword1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        created_user = User.objects.get(username="julia")
+        created_employee = Employee.objects.get(user=created_user)
+        self.assertEqual(created_employee.company, self.company)
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={"action": "remove_employee", "employee_id": created_employee.id},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.filter(username="julia").exists())
