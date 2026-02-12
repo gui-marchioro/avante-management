@@ -1,11 +1,27 @@
+html,
+body {
+    min-height: 100%;
+}
+
 .page-container {
     display: flex;
     flex-direction: column;
-    min-height: 100vh;
+    min-height: 100dvh;
+    margin: 0;
+}
+
+.page-container main {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
 }
 
 .main-container {
-    flex-grow: 1;
+    flex: 1;
+}
+
+.page-container > footer {
+    margin-top: auto;
 }
 
 .sidebar {
