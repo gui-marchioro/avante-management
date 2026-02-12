@@ -1,0 +1,50 @@
+{% extends "global/pages/base.html" %}
+
+{% block title %}Início{% endblock title %}
+
+{% block content %}
+<div class="container-fluid pt-2">
+    <div class="card mb-4">
+        <div class="card-body">
+            <h2 class="h4 mb-2">Olá, {{ user.first_name|default:user.username }}!</h2>
+            <p class="mb-1"><strong>Empresa:</strong> {{ company.name }}</p>
+            <p class="mb-0"><strong>CNPJ:</strong> {{ company.cnpj|default:"-" }}</p>
+        </div>
+    </div>
+
+    <h3 class="h5 mb-3">Aplicativos</h3>
+    <div class="row g-3">
+        {% for card in feature_cards %}
+            <div class="col-12 col-sm-6 col-lg-4 col-xl-3">
+            {% if card.target_url %}
+                <a href="{{ card.target_url }}" class="text-decoration-none">
+                    <div class="card h-100 border-primary-subtle bg-primary-subtle">
+                        <div class="card-body d-flex flex-column justify-content-between">
+                            <span class="fw-semibold">{{ card.name }}</span>
+                            <span class="small text-body-secondary">{{ card.code }}</span>
+                        </div>
+                    </div>
+                </a>
+            {% else %}
+                <div class="card h-100 text-bg-light border-secondary-subtle">
+                    <div class="card-body d-flex flex-column justify-content-between">
+                        <span class="fw-semibold text-secondary">{{ card.name }}</span>
+                        <span class="small text-secondary">
+                            {% if not card.is_granted %}
+                                {{ card.code }} (not granted)
+                            {% elif not card.is_enabled %}
+                                {{ card.code }} (disabled)
+                            {% else %}
+                                {{ card.code }} (unavailable)
+                            {% endif %}
+                        </span>
+                    </div>
+                </div>
+            {% endif %}
+            </div>
+        {% empty %}
+            <p class="text-muted">No features configured.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock content %}

@@ -29,7 +29,7 @@ ALLOWED_HOSTS = []
 
 # Authentication settings
 LOGIN_URL = 'companies:login'
-LOGIN_REDIRECT_URL = 'warehouse:home'
+LOGIN_REDIRECT_URL = 'companies:home'
 LOGOUT_REDIRECT_URL = 'companies:login'
 
 # Application definition
@@ -69,6 +69,7 @@ TEMPLATES: list[dict[str, Any]] = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'companies.context_processors.enabled_sidebar_features',
             ],
         },
     },

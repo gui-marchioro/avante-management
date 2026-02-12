@@ -1,5 +1,8 @@
 <div class="sidebar">
-    <a href="/" class="text-dark">Início</a>
-    <a href="/estoque" class="text-dark">Estoque</a>
-    <a href="/estoque/itens" class="text-dark">Itens</a>
+    <a href="{% url 'companies:home' %}" class="text-dark">Home</a>
+    {% for feature in sidebar_features %}
+        <a href="{{ feature.url }}" class="text-dark">{{ feature.name }}</a>
+    {% empty %}
+        <span class="text-muted px-3">No enabled features</span>
+    {% endfor %}
 </div>

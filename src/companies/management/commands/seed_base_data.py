@@ -8,7 +8,7 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.management.base import BaseCommand
 
-from companies.models import Company, Employee
+from companies.models import Company, CompanyFeature, Employee, Feature
 from warehouse.models import Item, ItemType, Manufacturer
 
 
@@ -34,6 +34,7 @@ class SeedCompany(TypedDict):
     item_types: list[str]
     manufacturers: list[str]
     items: list[SeedItem]
+    enabled_features: list[str]
 
 
 SEED_DATA: list[SeedCompany] = [
@@ -45,6 +46,7 @@ SEED_DATA: list[SeedCompany] = [
         "owner_password": "avante_admin",
         "item_types": ["PLC", "HMI", "Sensor", "Inversor"],
         "manufacturers": ["Siemens", "Schneider", "WEG"],
+        "enabled_features": ["companies", "warehouse"],
         "items": [
             {
                 "name": "S7-200",
@@ -113,6 +115,17 @@ class Command(BaseCommand):
                 user=owner,
                 defaults={"company": company},
             )
+
+            for feature_code in company_seed["enabled_features"]:
+                feature, _ = Feature.objects.get_or_create(
+                    code=feature_code,
+                    defaults={"name": feature_code.replace("_", " ").title(), "is_active": True},
+                )
+                CompanyFeature.objects.update_or_create(
+                    company=company,
+                    feature=feature,
+                    defaults={"enabled": True, "granted_by": owner},
+                )
 
             owner.user_permissions.add(
                 add_employee_permission,

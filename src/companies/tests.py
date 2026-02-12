@@ -26,7 +26,7 @@ class CompanySignupTests(TestCase):
         )
 
         self.assertEqual(response.status_code, 302)
-        self.assertEqual(response.url, reverse("warehouse:home"))
+        self.assertEqual(response.url, reverse("companies:home"))
 
         company = Company.objects.get(name="Acme Controls")
         self.assertEqual(company.cnpj, "12345678000199")
@@ -42,8 +42,8 @@ class CompanySignupTests(TestCase):
         self.assertTrue(user.has_perm("companies.manage_company_features"))
         self.assertTrue(company.has_feature("companies"))
 
-        items_response = self.client.get(reverse("warehouse:items"))
-        self.assertEqual(items_response.status_code, 200)
+        home_response = self.client.get(reverse("companies:home"))
+        self.assertEqual(home_response.status_code, 200)
 
     def test_duplicate_cnpj_is_rejected(self) -> None:
         Company.objects.create(name="Acme Controls", cnpj="12345678000199")
@@ -231,3 +231,54 @@ class CompanyFeatureToggleViewTests(TestCase):
         response = self.client.get(reverse("companies:company_features"))
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("companies:login"), response.url)
+
+
+class CompanyHomeViewTests(TestCase):
+    def setUp(self) -> None:
+        self.company = Company.objects.create(name="Home Co", cnpj="44444444000144")
+        self.user = User.objects.create_user(
+            username="home-admin",
+            first_name="Helena",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.user, company=self.company)
+        self.client.login(username="home-admin", password="StrongPassword1")
+
+        warehouse_feature, _ = Feature.objects.get_or_create(
+            code="warehouse",
+            defaults={"name": "Warehouse"},
+        )
+        CompanyFeature.objects.update_or_create(
+            company=self.company,
+            feature=warehouse_feature,
+            defaults={"enabled": True},
+        )
+
+    def test_homepage_shows_company_info(self) -> None:
+        response = self.client.get(reverse("companies:home"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Helena")
+        self.assertContains(response, "Home Co")
+        self.assertContains(response, "44444444000144")
+
+    def test_homepage_has_enabled_and_disabled_feature_buttons(self) -> None:
+        auth_feature, _ = Feature.objects.get_or_create(
+            code="auth",
+            defaults={"name": "Auth"},
+        )
+        CompanyFeature.objects.filter(company=self.company, feature=auth_feature).delete()
+
+        response = self.client.get(reverse("companies:home"))
+        self.assertContains(response, reverse("warehouse:home"))
+        self.assertContains(response, "auth (not granted)")
+
+    def test_sidebar_lists_only_enabled_features(self) -> None:
+        warehouse_feature = Feature.objects.get(code="warehouse")
+        CompanyFeature.objects.filter(
+            company=self.company,
+            feature=warehouse_feature,
+        ).update(enabled=False)
+
+        response = self.client.get(reverse("companies:home"))
+        self.assertContains(response, "Companies")
+        self.assertNotContains(response, reverse("warehouse:home"))
