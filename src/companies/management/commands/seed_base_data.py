@@ -79,6 +79,10 @@ class Command(BaseCommand):
             content_type__app_label="companies",
             codename="add_employee",
         )
+        manage_features_permission = Permission.objects.get(
+            content_type__app_label="companies",
+            codename="manage_company_features",
+        )
 
         for company_seed in SEED_DATA:
             company, company_created = Company.objects.get_or_create(
@@ -111,7 +115,10 @@ class Command(BaseCommand):
             )
 
             owner.user_permissions.add(
-                add_employee_permission, *warehouse_permissions)
+                add_employee_permission,
+                manage_features_permission,
+                *warehouse_permissions,
+            )
 
             item_type_map: dict[str, ItemType] = {}
             for item_type_name in company_seed["item_types"]:

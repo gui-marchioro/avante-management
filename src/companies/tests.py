@@ -1,8 +1,12 @@
+from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Permission, User
+from django.core.exceptions import ValidationError
+from django.test import RequestFactory
 from django.test import TestCase
 from django.urls import reverse
+from .admin import CompanyFeatureAdmin
 from .forms import EmployeeRegisterForm
-from .models import Company, Employee
+from .models import Company, CompanyFeature, Employee, Feature
 
 
 class CompanySignupTests(TestCase):
@@ -33,8 +37,10 @@ class CompanySignupTests(TestCase):
         warehouse_permission_count = Permission.objects.filter(
             content_type__app_label="warehouse"
         ).count()
-        self.assertEqual(user.user_permissions.count(), warehouse_permission_count + 1)
+        self.assertEqual(user.user_permissions.count(), warehouse_permission_count + 2)
         self.assertTrue(user.has_perm("companies.add_employee"))
+        self.assertTrue(user.has_perm("companies.manage_company_features"))
+        self.assertTrue(company.has_feature("companies"))
 
         items_response = self.client.get(reverse("warehouse:items"))
         self.assertEqual(items_response.status_code, 200)
@@ -120,3 +126,108 @@ class EmployeeRegisterViewTests(TestCase):
         created_user = User.objects.get(username="joao")
         employee = Employee.objects.get(user=created_user)
         self.assertEqual(employee.company, self.company)
+
+
+class CompanyFeatureTests(TestCase):
+    def setUp(self) -> None:
+        self.company = Company.objects.create(name="Feature Co", cnpj="11111111000111")
+        self.feature = Feature.objects.create(
+            code="warehouse",
+            name="Warehouse",
+            is_active=True,
+        )
+
+    def test_company_has_feature_only_when_enabled(self) -> None:
+        self.assertFalse(self.company.has_feature("warehouse"))
+        CompanyFeature.objects.create(
+            company=self.company,
+            feature=self.feature,
+            enabled=True,
+        )
+        self.assertTrue(self.company.has_feature("warehouse"))
+
+    def test_company_feature_admin_is_superuser_only_for_changes(self) -> None:
+        site = AdminSite()
+        model_admin = CompanyFeatureAdmin(CompanyFeature, site)
+        factory = RequestFactory()
+
+        superuser = User.objects.create_superuser(
+            username="root",
+            email="root@example.com",
+            password="StrongPassword1",
+        )
+        staff = User.objects.create_user(
+            username="staff",
+            email="staff@example.com",
+            password="StrongPassword1",
+            is_staff=True,
+        )
+
+        super_request = factory.get("/admin/companies/companyfeature/")
+        super_request.user = superuser
+        self.assertTrue(model_admin.has_add_permission(super_request))
+        self.assertTrue(model_admin.has_change_permission(super_request))
+        self.assertTrue(model_admin.has_delete_permission(super_request))
+
+        staff_request = factory.get("/admin/companies/companyfeature/")
+        staff_request.user = staff
+        self.assertFalse(model_admin.has_add_permission(staff_request))
+        self.assertFalse(model_admin.has_change_permission(staff_request))
+        self.assertFalse(model_admin.has_delete_permission(staff_request))
+
+    def test_feature_code_must_match_app_label(self) -> None:
+        valid_feature = Feature(code="auth", name="Auth")
+        valid_feature.full_clean()
+
+        invalid_feature = Feature(code="nonexistent_app", name="Invalid")
+        with self.assertRaises(ValidationError):
+            invalid_feature.full_clean()
+
+
+class CompanyFeatureToggleViewTests(TestCase):
+    def setUp(self) -> None:
+        self.company_a = Company.objects.create(name="Tenant A", cnpj="22222222000122")
+        self.company_b = Company.objects.create(name="Tenant B", cnpj="33333333000133")
+
+        self.admin_user = User.objects.create_user(
+            username="tenant-admin",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.admin_user, company=self.company_a)
+        self.admin_user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="manage_company_features",
+            )
+        )
+
+        feature_warehouse = Feature.objects.create(code="warehouse", name="Warehouse")
+        feature_auth, _ = Feature.objects.get_or_create(
+            code="auth",
+            defaults={"name": "Auth"},
+        )
+
+        self.grant_a = CompanyFeature.objects.create(
+            company=self.company_a, feature=feature_warehouse, enabled=True
+        )
+        self.grant_b = CompanyFeature.objects.create(
+            company=self.company_b, feature=feature_auth, enabled=True
+        )
+
+    def test_company_admin_can_toggle_only_own_company_grants(self) -> None:
+        self.client.login(username="tenant-admin", password="StrongPassword1")
+        response = self.client.post(
+            reverse("companies:company_features"),
+            data={},
+        )
+        self.assertEqual(response.status_code, 302)
+
+        self.grant_a.refresh_from_db()
+        self.grant_b.refresh_from_db()
+        self.assertFalse(self.grant_a.enabled)
+        self.assertTrue(self.grant_b.enabled)
+
+    def test_anonymous_user_is_redirected_from_feature_toggle_view(self) -> None:
+        response = self.client.get(reverse("companies:company_features"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("companies:login"), response.url)

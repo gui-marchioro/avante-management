@@ -152,6 +152,13 @@ class CompanySignupForm(forms.Form):
             content_type__app_label="companies",
             codename="add_employee",
         )
-        user.user_permissions.add(employee_management_permission)
+        feature_management_permission = Permission.objects.get(
+            content_type__app_label="companies",
+            codename="manage_company_features",
+        )
+        user.user_permissions.add(
+            employee_management_permission,
+            feature_management_permission,
+        )
         Employee.objects.create(user=user, company=company)
         return user
