@@ -7,7 +7,7 @@
             <span class="nav-link disabled">Hello, {{ user.username }}!</span>
         </li>
         <li class="nav-item">
-            <form action="{% url 'users:logout' %}" method="post">
+            <form action="{% url 'companies:logout' %}" method="post">
                 {% csrf_token %}
                 <button type="submit" class="btn btn-outline-primary me-2">Log Out</button>
             </form>

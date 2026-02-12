@@ -1,7 +1,10 @@
+from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth import login
+from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import render, redirect
-from .forms import CompanySignupForm
+from .forms import CompanySignupForm, EmployeeRegisterForm
+from .models import get_user_company
 
 
 def signup_company(request: HttpRequest) -> HttpResponse:
@@ -22,3 +25,21 @@ def signup_company(request: HttpRequest) -> HttpResponse:
         "companies/pages/signup_company.html",
         {"title": "Criar Empresa", "form": form},
     )
+
+
+@login_required
+@permission_required("companies.add_employee", raise_exception=True)
+def register_employee(request: HttpRequest) -> HttpResponse:
+    company = get_user_company(request.user)
+    if company is None:
+        raise PermissionDenied("User is not associated with a company.")
+
+    if request.method == "POST":
+        form = EmployeeRegisterForm(request.POST)
+        if form.is_valid():
+            form.save(company=company)
+            return redirect("companies:register_employee")
+    else:
+        form = EmployeeRegisterForm()
+
+    return render(request, "companies/pages/register_employee.html", {"form": form})

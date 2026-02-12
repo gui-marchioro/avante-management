@@ -28,9 +28,9 @@ DEBUG = True
 ALLOWED_HOSTS = []
 
 # Authentication settings
-LOGIN_URL = 'users:login'
+LOGIN_URL = 'companies:login'
 LOGIN_REDIRECT_URL = 'warehouse:home'
-LOGOUT_REDIRECT_URL = 'users:login'
+LOGOUT_REDIRECT_URL = 'companies:login'
 
 # Application definition
 
@@ -42,7 +42,6 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'warehouse',
-    'users',
     'companies',
 ]
 

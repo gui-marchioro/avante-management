@@ -3,12 +3,82 @@ from django.contrib.auth import get_user_model
 from django.contrib.auth.models import Permission
 from django.core.exceptions import ValidationError
 from django.db import transaction
-from users.forms import validate_password_strength
-from users.models import Employee
-from .models import Company
+from .models import Company, Employee
 
 
 User = get_user_model()
+
+
+def validate_password_strength(value: str) -> None:
+    if len(value) < 8:
+        raise ValidationError(
+            "Password must be at least 8 characters long.",
+            code="invalid",
+        )
+    if not any(char.isdigit() for char in value):
+        raise ValidationError(
+            "Password must contain at least one numeral.",
+            code="invalid",
+        )
+    if not any(char.isalpha() for char in value):
+        raise ValidationError(
+            "Password must contain at least one letter.",
+            code="invalid",
+        )
+    if not any(char.isupper() for char in value):
+        raise ValidationError(
+            "Password must contain at least one uppercase letter.",
+            code="invalid",
+        )
+    if not any(char.islower() for char in value):
+        raise ValidationError(
+            "Password must contain at least one lowercase letter.",
+            code="invalid",
+        )
+
+
+class EmployeeRegisterForm(forms.ModelForm):  # type: ignore
+    password = forms.CharField(
+        required=True,
+        widget=forms.PasswordInput,
+        label="Senha",
+        validators=[validate_password_strength],
+    )
+    password2 = forms.CharField(
+        required=True, widget=forms.PasswordInput, label="Confirmar senha"
+    )
+
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "username", "email"]
+
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get("password")
+        password2 = cleaned_data.get("password2")
+
+        if password != password2:
+            password_confirmation_error = ValidationError(
+                "Passwords must be equal",
+                code="invalid",
+            )
+            raise ValidationError(
+                {
+                    "password": password_confirmation_error,
+                    "password2": password_confirmation_error,
+                }
+            )
+
+        return cleaned_data
+
+    @transaction.atomic
+    def save(self, company: Company, commit: bool = True) -> User:
+        user = super().save(commit=False)
+        user.set_password(self.cleaned_data["password"])
+        if commit:
+            user.save()
+            Employee.objects.create(user=user, company=company)
+        return user
 
 
 class CompanySignupForm(forms.Form):
@@ -78,5 +148,10 @@ class CompanySignupForm(forms.Form):
             content_type__app_label="warehouse"
         )
         user.user_permissions.add(*warehouse_permissions)
+        employee_management_permission = Permission.objects.get(
+            content_type__app_label="companies",
+            codename="add_employee",
+        )
+        user.user_permissions.add(employee_management_permission)
         Employee.objects.create(user=user, company=company)
         return user
