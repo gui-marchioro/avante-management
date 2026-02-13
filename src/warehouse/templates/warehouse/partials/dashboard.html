@@ -40,6 +40,9 @@ This template displays a visualization of warehouse items.
 </div>
 
 <h3 class="mt-4">Detalhes</h3>
+<div class="mb-3">
+    <a href="{% url 'warehouse:items' %}" class="btn btn-outline-primary">Ver itens</a>
+</div>
 {% include 'warehouse/partials/item_list.html' %}
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
