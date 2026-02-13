@@ -5,7 +5,7 @@ from decimal import Decimal
 from typing import TypedDict
 
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
 from companies.models import Company, CompanyFeature, Employee, Feature
@@ -81,10 +81,7 @@ class Command(BaseCommand):
             content_type__app_label="companies",
             codename="add_employee",
         )
-        manage_features_permission = Permission.objects.get(
-            content_type__app_label="companies",
-            codename="manage_company_features",
-        )
+        company_admin_group = Group.objects.filter(name="company_admin").first()
 
         for company_seed in SEED_DATA:
             company, company_created = Company.objects.get_or_create(
@@ -129,9 +126,10 @@ class Command(BaseCommand):
 
             owner.user_permissions.add(
                 add_employee_permission,
-                manage_features_permission,
                 *warehouse_permissions,
             )
+            if company_admin_group is not None:
+                owner.groups.add(company_admin_group)
 
             item_type_map: dict[str, ItemType] = {}
             for item_type_name in company_seed["item_types"]:

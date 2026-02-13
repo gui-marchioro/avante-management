@@ -1,5 +1,5 @@
 from django.contrib.admin.sites import AdminSite
-from django.contrib.auth.models import Permission, User
+from django.contrib.auth.models import Group, Permission, User
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory
 from django.test import TestCase
@@ -37,7 +37,8 @@ class CompanySignupTests(TestCase):
         warehouse_permission_count = Permission.objects.filter(
             content_type__app_label="warehouse"
         ).count()
-        self.assertEqual(user.user_permissions.count(), warehouse_permission_count + 2)
+        self.assertEqual(user.user_permissions.count(),
+                         warehouse_permission_count + 1)
         self.assertTrue(user.has_perm("companies.add_employee"))
         self.assertTrue(user.has_perm("companies.manage_company_features"))
         self.assertTrue(company.has_feature("companies"))
@@ -89,7 +90,8 @@ class EmployeeRegisterFormTests(TestCase):
 
 class CompanyFeatureTests(TestCase):
     def setUp(self) -> None:
-        self.company = Company.objects.create(name="Feature Co", cnpj="11111111000111")
+        self.company = Company.objects.create(
+            name="Feature Co", cnpj="11111111000111")
         self.feature = Feature.objects.create(
             code="warehouse",
             name="Warehouse",
@@ -145,22 +147,25 @@ class CompanyFeatureTests(TestCase):
 
 class CompanyFeatureToggleViewTests(TestCase):
     def setUp(self) -> None:
-        self.company_a = Company.objects.create(name="Tenant A", cnpj="22222222000122")
-        self.company_b = Company.objects.create(name="Tenant B", cnpj="33333333000133")
+        self.company_a = Company.objects.create(
+            name="Tenant A", cnpj="22222222000122")
+        self.company_b = Company.objects.create(
+            name="Tenant B", cnpj="33333333000133")
 
-        self.admin_user = User.objects.create_user(
+        self.superuser = User.objects.create_superuser(
+            username="root-admin",
+            email="root@example.com",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.superuser, company=self.company_a)
+        self.regular_user = User.objects.create_user(
             username="tenant-admin",
             password="StrongPassword1",
         )
-        Employee.objects.create(user=self.admin_user, company=self.company_a)
-        self.admin_user.user_permissions.add(
-            Permission.objects.get(
-                content_type__app_label="companies",
-                codename="manage_company_features",
-            )
-        )
+        Employee.objects.create(user=self.regular_user, company=self.company_a)
 
-        feature_warehouse = Feature.objects.create(code="warehouse", name="Warehouse")
+        feature_warehouse = Feature.objects.create(
+            code="warehouse", name="Warehouse")
         feature_auth, _ = Feature.objects.get_or_create(
             code="auth",
             defaults={"name": "Auth"},
@@ -173,8 +178,8 @@ class CompanyFeatureToggleViewTests(TestCase):
             company=self.company_b, feature=feature_auth, enabled=True
         )
 
-    def test_company_admin_can_toggle_only_own_company_grants(self) -> None:
-        self.client.login(username="tenant-admin", password="StrongPassword1")
+    def test_superuser_can_toggle_only_own_company_grants(self) -> None:
+        self.client.login(username="root-admin", password="StrongPassword1")
         response = self.client.post(
             reverse("companies:company_features"),
             data={},
@@ -191,10 +196,17 @@ class CompanyFeatureToggleViewTests(TestCase):
         self.assertEqual(response.status_code, 302)
         self.assertIn(reverse("companies:login"), response.url)
 
+    def test_non_superuser_cannot_access_feature_toggle_view(self) -> None:
+        self.client.login(username="tenant-admin", password="StrongPassword1")
+        response = self.client.get(reverse("companies:company_features"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("companies:login"), response.url)
+
 
 class CompanyHomeViewTests(TestCase):
     def setUp(self) -> None:
-        self.company = Company.objects.create(name="Home Co", cnpj="44444444000144")
+        self.company = Company.objects.create(
+            name="Home Co", cnpj="44444444000144")
         self.user = User.objects.create_user(
             username="home-admin",
             first_name="Helena",
@@ -242,7 +254,8 @@ class CompanyHomeViewTests(TestCase):
             code="auth",
             defaults={"name": "Auth"},
         )
-        CompanyFeature.objects.filter(company=self.company, feature=auth_feature).delete()
+        CompanyFeature.objects.filter(
+            company=self.company, feature=auth_feature).delete()
 
         response = self.client.get(reverse("companies:home"))
         self.assertContains(response, reverse("warehouse:home"))
@@ -262,7 +275,8 @@ class CompanyHomeViewTests(TestCase):
 
 class CompanyConfigurationViewTests(TestCase):
     def setUp(self) -> None:
-        self.company = Company.objects.create(name="Config Co", cnpj="55555555000155")
+        self.company = Company.objects.create(
+            name="Config Co", cnpj="55555555000155")
         self.admin_user = User.objects.create_user(
             username="config-admin",
             password="StrongPassword1",
@@ -272,10 +286,6 @@ class CompanyConfigurationViewTests(TestCase):
             Permission.objects.get(
                 content_type__app_label="companies",
                 codename="add_employee",
-            ),
-            Permission.objects.get(
-                content_type__app_label="companies",
-                codename="manage_company_features",
             ),
         )
         self.client.login(username="config-admin", password="StrongPassword1")
@@ -297,23 +307,16 @@ class CompanyConfigurationViewTests(TestCase):
         self.assertContains(response, "Features da empresa")
         self.assertContains(response, "Funcionários")
 
-    def test_company_configuration_updates_company_features_and_employees(self) -> None:
+    def test_company_configuration_updates_company_and_employees(self) -> None:
         response = self.client.post(
             reverse("companies:company_configuration"),
-            data={"action": "update_company", "name": "Config Co Updated", "cnpj": "55.555.555/0001-55"},
+            data={"action": "update_company",
+                  "name": "Config Co Updated", "cnpj": "55.555.555/0001-55"},
         )
         self.assertEqual(response.status_code, 302)
         self.company.refresh_from_db()
         self.assertEqual(self.company.name, "Config Co Updated")
         self.assertEqual(self.company.cnpj, "55555555000155")
-
-        response = self.client.post(
-            reverse("companies:company_configuration"),
-            data={"action": "toggle_features"},
-        )
-        self.assertEqual(response.status_code, 302)
-        self.grant.refresh_from_db()
-        self.assertFalse(self.grant.enabled)
 
         response = self.client.post(
             reverse("companies:company_configuration"),
@@ -334,7 +337,103 @@ class CompanyConfigurationViewTests(TestCase):
 
         response = self.client.post(
             reverse("companies:company_configuration"),
-            data={"action": "remove_employee", "employee_id": created_employee.id},
+            data={"action": "remove_employee",
+                  "employee_id": created_employee.id},
         )
         self.assertEqual(response.status_code, 302)
         self.assertFalse(User.objects.filter(username="julia").exists())
+
+    def test_company_configuration_can_only_enable_features(self) -> None:
+        self.grant.enabled = False
+        self.grant.save(update_fields=["enabled"])
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={"action": "enable_features",
+                  "feature_enable": [str(self.grant.id)]},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.grant.refresh_from_db()
+        self.assertTrue(self.grant.enabled)
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={"action": "enable_features"},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.grant.refresh_from_db()
+        self.assertTrue(self.grant.enabled)
+
+
+class StandardGroupsTests(TestCase):
+    def test_warehouse_groups_have_expected_permissions(self) -> None:
+        warehouse_viewer = Group.objects.get(name="warehouse_viewer")
+        warehouse_editor = Group.objects.get(name="warehouse_editor")
+        warehouse_admin = Group.objects.get(name="warehouse_admin")
+
+        self.assertTrue(
+            warehouse_viewer.permissions.filter(
+                content_type__app_label="warehouse",
+                codename="view_item",
+            ).exists()
+        )
+        self.assertFalse(
+            warehouse_viewer.permissions.filter(
+                content_type__app_label="warehouse",
+                codename="add_item",
+            ).exists()
+        )
+        self.assertTrue(
+            warehouse_editor.permissions.filter(
+                content_type__app_label="warehouse",
+                codename="change_item",
+            ).exists()
+        )
+        self.assertFalse(
+            warehouse_editor.permissions.filter(
+                content_type__app_label="warehouse",
+                codename="view_financial_dashboard",
+            ).exists()
+        )
+        self.assertTrue(
+            warehouse_admin.permissions.filter(
+                content_type__app_label="warehouse",
+                codename="view_financial_dashboard",
+            ).exists()
+        )
+
+    def test_company_groups_have_expected_permissions(self) -> None:
+        company_viewer = Group.objects.get(name="company_viewer")
+        company_editor = Group.objects.get(name="company_editor")
+        company_admin = Group.objects.get(name="company_admin")
+
+        self.assertTrue(
+            company_viewer.permissions.filter(
+                content_type__app_label="companies",
+                codename="view_company",
+            ).exists()
+        )
+        self.assertFalse(
+            company_viewer.permissions.filter(
+                content_type__app_label="companies",
+                codename="change_company",
+            ).exists()
+        )
+        self.assertTrue(
+            company_editor.permissions.filter(
+                content_type__app_label="companies",
+                codename="change_company",
+            ).exists()
+        )
+        self.assertFalse(
+            company_admin.permissions.filter(
+                content_type__app_label="companies",
+                codename="manage_company_features",
+            ).exists()
+        )
+        self.assertTrue(
+            company_admin.permissions.filter(
+                content_type__app_label="auth",
+                codename="change_user",
+            ).exists()
+        )

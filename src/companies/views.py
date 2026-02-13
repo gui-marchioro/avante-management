@@ -1,4 +1,4 @@
-from django.contrib.auth.decorators import login_required, permission_required
+from django.contrib.auth.decorators import login_required, permission_required, user_passes_test
 from django.contrib.auth import login
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest, HttpResponse
@@ -6,7 +6,7 @@ from django.urls import NoReverseMatch, reverse
 from .feature_routes import FEATURE_ROUTE_NAMES
 from django.shortcuts import render, redirect
 from .forms import CompanySignupForm, CompanyUpdateForm, EmployeeRegisterForm
-from .models import CompanyFeature, Feature, get_user_company, Employee
+from .models import CompanyFeature, Feature, get_user_company
 
 
 @login_required
@@ -77,6 +77,7 @@ def signup_company(request: HttpRequest) -> HttpResponse:
         {"title": "Criar Empresa", "form": form},
     )
 
+
 @login_required
 @permission_required("companies.manage_company_features", raise_exception=True)
 def company_features(request: HttpRequest) -> HttpResponse:
@@ -111,12 +112,13 @@ def company_configuration(request: HttpRequest) -> HttpResponse:
     if company is None:
         raise PermissionDenied("User is not associated with a company.")
 
+    employees = company.employees.select_related(
+        "user").order_by("user__username")
     grants = list(
         CompanyFeature.objects.filter(company=company)
         .select_related("feature")
         .order_by("feature__code")
     )
-    employees = company.employees.select_related("user").order_by("user__username")
 
     company_form = CompanyUpdateForm(instance=company)
     employee_form = EmployeeRegisterForm()
@@ -133,7 +135,8 @@ def company_configuration(request: HttpRequest) -> HttpResponse:
         elif action == "toggle_features":
             for grant in grants:
                 grant.enabled = f"feature_{grant.id}" in request.POST
-            CompanyFeature.objects.bulk_update(grants, ["enabled", "updated_at"])
+            CompanyFeature.objects.bulk_update(
+                grants, ["enabled", "updated_at"])
             return redirect("companies:company_configuration")
 
         elif action == "add_employee":

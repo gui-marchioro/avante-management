@@ -59,16 +59,16 @@
                         {% csrf_token %}
                         <input type="hidden" name="action" value="toggle_features">
 
-                        {% for grant in grants %}
+                                    {% for grant in grants %}
                             <div class="form-check mb-2">
                                 <input class="form-check-input" type="checkbox" name="feature_{{ grant.id }}" id="feature_{{ grant.id }}" {% if grant.enabled %}checked{% endif %}>
                                 <label class="form-check-label" for="feature_{{ grant.id }}">
                                     <strong>{{ grant.feature.name }}</strong> ({{ grant.feature.code }})
                                 </label>
                             </div>
-                        {% empty %}
+                                    {% empty %}
                             <p class="text-muted mb-0">No features granted for this company.</p>
-                        {% endfor %}
+                                    {% endfor %}
 
                         {% if grants %}
                             <button type="submit" class="btn btn-primary mt-3">Salvar features</button>

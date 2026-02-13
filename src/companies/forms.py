@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.models import Permission
+from django.contrib.auth.models import Group
 from django.core.exceptions import ValidationError
 from django.db import transaction
 from .models import Company, Employee
@@ -131,7 +131,8 @@ class CompanySignupForm(forms.Form):
         return self.cleaned_data["company_name"].strip()
 
     def clean_cnpj(self):
-        cnpj = "".join(char for char in self.cleaned_data["cnpj"] if char.isdigit())
+        cnpj = "".join(
+            char for char in self.cleaned_data["cnpj"] if char.isdigit())
         if len(cnpj) != 14:
             raise ValidationError("CNPJ must contain 14 digits.")
         if Company.objects.filter(cnpj=cnpj).exists():
@@ -171,21 +172,9 @@ class CompanySignupForm(forms.Form):
             email=self.cleaned_data["email"].strip().lower(),
             password=self.cleaned_data["password"],
         )
-        warehouse_permissions = Permission.objects.filter(
-            content_type__app_label="warehouse"
-        )
-        user.user_permissions.add(*warehouse_permissions)
-        employee_management_permission = Permission.objects.get(
-            content_type__app_label="companies",
-            codename="add_employee",
-        )
-        feature_management_permission = Permission.objects.get(
-            content_type__app_label="companies",
-            codename="manage_company_features",
-        )
-        user.user_permissions.add(
-            employee_management_permission,
-            feature_management_permission,
-        )
+        company_admin_group = Group.objects.filter(
+            name="company_admin").first()
+        if company_admin_group is not None:
+            user.groups.add(company_admin_group)
         Employee.objects.create(user=user, company=company)
         return user

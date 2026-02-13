@@ -59,7 +59,8 @@ class Feature(models.Model):
 
     def clean(self):
         super().clean()
-        valid_labels = {app_config.label for app_config in django_apps.get_app_configs()}
+        valid_labels = {
+            app_config.label for app_config in django_apps.get_app_configs()}
         if self.code not in valid_labels:
             raise ValidationError(
                 {"code": "Feature code must match an installed app label."}
