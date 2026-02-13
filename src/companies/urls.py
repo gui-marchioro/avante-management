@@ -6,6 +6,7 @@ app_name = "companies"
 
 urlpatterns = [
     path("", views.home, name="home"),
+    path("employees/", views.employees, name="employees"),
     path(
         "users/login/",
         auth_views.LoginView.as_view(template_name="companies/pages/login.html"),

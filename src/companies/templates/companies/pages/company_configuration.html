@@ -9,73 +9,82 @@
             <div class="card">
                 <div class="card-body">
                     <h3 class="h5 mb-3">Informações da empresa</h3>
-                    <form method="post" action="{% url 'companies:company_configuration' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="update_company">
+                    {% if can_change_company and company_form %}
+                        <form method="post" action="{% url 'companies:company_configuration' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="update_company">
 
-                        {% for field in company_form %}
-                            <div class="mb-3">
-                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                                <input type="text" name="{{ field.name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}">
-                                {% for error in field.errors %}
-                                    <div class="invalid-feedback">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endfor %}
+                            {% for field in company_form %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    <input type="text" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}">
+                                    {% for error in field.errors %}
+                                        <div class="invalid-feedback">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
 
-                        <button type="submit" class="btn btn-primary">Salvar empresa</button>
-                    </form>
+                            <button type="submit" class="btn btn-primary">Salvar empresa</button>
+                        </form>
+                    {% else %}
+                        <p class="mb-1"><strong>Nome:</strong> {{ company.name }}</p>
+                        <p class="mb-0"><strong>CNPJ:</strong> {{ company.cnpj|default:"-" }}</p>
+                    {% endif %}
                 </div>
             </div>
 
-            <div class="card mt-4">
-                <div class="card-body">
-                    <h3 class="h5 mb-3">Adicionar funcionário</h3>
-                    <form method="post" action="{% url 'companies:company_configuration' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="add_employee">
+            {% if can_add_employee and employee_form %}
+                <div class="card mt-4">
+                    <div class="card-body">
+                        <h3 class="h5 mb-3">Adicionar funcionário</h3>
+                        <form method="post" action="{% url 'companies:company_configuration' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="add_employee">
 
-                        {% for field in employee_form %}
-                            <div class="mb-3">
-                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
-                                <input type="{{ field.field.widget.input_type }}" name="{{ field.name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
-                                {% for error in field.errors %}
-                                    <div class="invalid-feedback">{{ error }}</div>
-                                {% endfor %}
-                            </div>
-                        {% endfor %}
+                            {% for field in employee_form %}
+                                <div class="mb-3">
+                                    <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
+                                    {% for error in field.errors %}
+                                        <div class="invalid-feedback">{{ error }}</div>
+                                    {% endfor %}
+                                </div>
+                            {% endfor %}
 
-                        <button type="submit" class="btn btn-primary">Adicionar funcionário</button>
-                    </form>
+                            <button type="submit" class="btn btn-primary">Adicionar funcionário</button>
+                        </form>
+                    </div>
                 </div>
-            </div>
+            {% endif %}
         </div>
 
         <div class="col-12 col-xl-7">
-            <div class="card">
-                <div class="card-body">
-                    <h3 class="h5 mb-3">Features da empresa</h3>
-                    <form method="post" action="{% url 'companies:company_configuration' %}">
-                        {% csrf_token %}
-                        <input type="hidden" name="action" value="toggle_features">
+            {% if can_manage_company_features %}
+                <div class="card">
+                    <div class="card-body">
+                        <h3 class="h5 mb-3">Features da empresa</h3>
+                        <form method="post" action="{% url 'companies:company_configuration' %}">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="toggle_features">
 
-                                    {% for grant in grants %}
-                            <div class="form-check mb-2">
-                                <input class="form-check-input" type="checkbox" name="feature_{{ grant.id }}" id="feature_{{ grant.id }}" {% if grant.enabled %}checked{% endif %}>
-                                <label class="form-check-label" for="feature_{{ grant.id }}">
-                                    <strong>{{ grant.feature.name }}</strong> ({{ grant.feature.code }})
-                                </label>
-                            </div>
-                                    {% empty %}
-                            <p class="text-muted mb-0">No features granted for this company.</p>
-                                    {% endfor %}
+                            {% for grant in grants %}
+                                <div class="form-check mb-2">
+                                    <input class="form-check-input" type="checkbox" name="feature_{{ grant.id }}" id="feature_{{ grant.id }}" {% if grant.enabled %}checked{% endif %}>
+                                    <label class="form-check-label" for="feature_{{ grant.id }}">
+                                        <strong>{{ grant.feature.name }}</strong> ({{ grant.feature.code }})
+                                    </label>
+                                </div>
+                            {% empty %}
+                                <p class="text-muted mb-0">No features granted for this company.</p>
+                            {% endfor %}
 
-                        {% if grants %}
-                            <button type="submit" class="btn btn-primary mt-3">Salvar features</button>
-                        {% endif %}
-                    </form>
+                            {% if grants %}
+                                <button type="submit" class="btn btn-primary mt-3">Salvar features</button>
+                            {% endif %}
+                        </form>
+                    </div>
                 </div>
-            </div>
+            {% endif %}
 
             <div class="card mt-4">
                 <div class="card-body">
@@ -97,7 +106,7 @@
                                         <td>{{ employee.user.username }}</td>
                                         <td>{{ employee.user.email|default:"-" }}</td>
                                         <td class="text-end">
-                                            {% if employee.user_id != user.id %}
+                                            {% if can_delete_employee and employee.user_id != user.id %}
                                                 <form method="post" action="{% url 'companies:company_configuration' %}" class="d-inline">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="action" value="remove_employee">
@@ -117,6 +126,50 @@
                     </div>
                 </div>
             </div>
+
+            {% if can_change_employee or can_change_employee_groups %}
+                <div class="row g-3 mt-1">
+                    {% for row in employee_rows %}
+                        <div class="col-12">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h4 class="h6 mb-3">{{ row.employee.user.username }}</h4>
+                                    {% if can_change_employee and row.edit_form %}
+                                        <form method="post" action="{% url 'companies:company_configuration' %}" class="mb-3">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="update_employee">
+                                            <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                            <div class="row g-2">
+                                                {% for field in row.edit_form %}
+                                                    <div class="col-12 col-md-6">
+                                                        <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                                        <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
+                                                        {% for error in field.errors %}
+                                                            <div class="invalid-feedback">{{ error }}</div>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endfor %}
+                                            </div>
+                                            <button type="submit" class="btn btn-sm btn-primary mt-3">Salvar alterações</button>
+                                        </form>
+                                    {% endif %}
+
+                                    {% if can_change_employee_groups and row.groups_form %}
+                                        <form method="post" action="{% url 'companies:company_configuration' %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="action" value="update_employee_groups">
+                                            <input type="hidden" name="employee_id" value="{{ row.employee.id }}">
+                                            <label class="form-label d-block">{{ row.groups_form.groups.label }}</label>
+                                            {{ row.groups_form.groups }}
+                                            <button type="submit" class="btn btn-sm btn-outline-primary mt-2">Salvar grupos</button>
+                                        </form>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
         </div>
     </div>
 </div>

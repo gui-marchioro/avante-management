@@ -3,10 +3,98 @@
 {% block title %}Itens Estoque{% endblock title %}
 
 {% block content %}
-    <div>
-        <a href={% url "warehouse:create_item" %} class="btn btn-primary mb-3">Novo Item</a>
+<div class="container-fluid pt-3">
+    {% if can_add_item %}
+        <div>
+            <a href="{% url 'warehouse:create_item' %}" class="btn btn-primary mb-3">Novo Item</a>
+        </div>
+    {% endif %}
+
+    <div class="table-responsive mt-2">
+        <table class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Nome</th>
+                    <th>Tipo</th>
+                    <th>Fabricante</th>
+                    <th>Modelo</th>
+                    <th>Quantidade</th>
+                    <th>Valor de Mercado (unit)</th>
+                    <th>Descrição</th>
+                    {% if can_delete_item %}
+                        <th>Ações</th>
+                    {% endif %}
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in item_rows %}
+                    <tr>
+                        <td>{{ row.item.name }}</td>
+                        <td>{{ row.item.type }}</td>
+                        <td>{{ row.item.manufacturer.name }}</td>
+                        <td>{{ row.item.model }}</td>
+                        <td>{{ row.item.quantity }}</td>
+                        <td>R${{ row.item.market_value }}</td>
+                        <td>{{ row.item.description|default:"-" }}</td>
+                        {% if can_delete_item %}
+                            <td>
+                                <form method="post" action="{% url 'warehouse:items' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="delete_item">
+                                    <input type="hidden" name="item_id" value="{{ row.item.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger">Remover</button>
+                                </form>
+                            </td>
+                        {% endif %}
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="{% if can_delete_item %}8{% else %}7{% endif %}" class="text-center">No items found.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
-    <div class="container-fluid pt-3">
-        {% include "warehouse/partials/item_list.html" %}
-    </div>
+
+    {% if can_change_item %}
+        <div class="row g-3 mt-1">
+            {% for row in item_rows %}
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-body">
+                            <h4 class="h6 mb-3">Editar {{ row.item.name }}</h4>
+                            {% if row.edit_form %}
+                                <form method="post" action="{% url 'warehouse:items' %}">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="action" value="update_item">
+                                    <input type="hidden" name="item_id" value="{{ row.item.id }}">
+                                    <div class="row g-2">
+                                        {% for field in row.edit_form %}
+                                            <div class="col-12 col-md-6">
+                                                <label for="{{ field.id_for_label }}" class="form-label">{{ field.label }}</label>
+                                                {% if field.field.choices %}
+                                                    <select name="{{ field.html_name }}" id="{{ field.id_for_label }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
+                                                        {% for value, label in field.field.choices %}
+                                                            <option value="{{ value }}" {% if field.value == value %}selected{% endif %}>{{ label }}</option>
+                                                        {% endfor %}
+                                                    </select>
+                                                {% else %}
+                                                    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}" value="{{ field.value|default_if_none:'' }}" class="form-control {% if field.errors %}is-invalid{% endif %}" {% if field.field.required %}required{% endif %}>
+                                                {% endif %}
+                                                {% for error in field.errors %}
+                                                    <div class="invalid-feedback">{{ error }}</div>
+                                                {% endfor %}
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                    <button type="submit" class="btn btn-sm btn-primary mt-3">Salvar alterações</button>
+                                </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
 {% endblock content %}

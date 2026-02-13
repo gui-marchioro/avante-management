@@ -81,6 +81,43 @@ class EmployeeRegisterForm(forms.ModelForm):  # type: ignore
         return user
 
 
+class EmployeeUpdateForm(forms.ModelForm):  # type: ignore
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "username", "email"]
+
+    def clean_username(self):
+        username = (self.cleaned_data.get("username") or "").strip()
+        user_qs = User.objects.filter(username__iexact=username)
+        if self.instance.pk:
+            user_qs = user_qs.exclude(pk=self.instance.pk)
+        if user_qs.exists():
+            raise ValidationError("This username is already in use.")
+        return username
+
+    def clean_email(self):
+        email = (self.cleaned_data.get("email") or "").strip().lower()
+        user_qs = User.objects.filter(email__iexact=email)
+        if self.instance.pk:
+            user_qs = user_qs.exclude(pk=self.instance.pk)
+        if user_qs.exists():
+            raise ValidationError("This email is already in use.")
+        return email
+
+
+class EmployeeGroupsForm(forms.Form):
+    groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.none(),
+        required=False,
+        widget=forms.CheckboxSelectMultiple,
+        label="Groups",
+    )
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields["groups"].queryset = Group.objects.order_by("name")
+
+
 class CompanyUpdateForm(forms.ModelForm):  # type: ignore
     cnpj = forms.CharField(max_length=18, required=False, label="CNPJ")
 

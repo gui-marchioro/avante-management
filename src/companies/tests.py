@@ -1,5 +1,6 @@
 from django.contrib.admin.sites import AdminSite
 from django.contrib.auth.models import Group, Permission, User
+from django.contrib.contenttypes.models import ContentType
 from django.core.exceptions import ValidationError
 from django.test import RequestFactory
 from django.test import TestCase
@@ -245,6 +246,7 @@ class CompanyHomeViewTests(TestCase):
         response = self.client.get(reverse("companies:home"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Funcionários cadastrados")
+        self.assertContains(response, reverse("companies:employees"))
         self.assertContains(response, "home-admin")
         self.assertContains(response, "operator-1")
         self.assertContains(response, "Carlos")
@@ -271,6 +273,158 @@ class CompanyHomeViewTests(TestCase):
         response = self.client.get(reverse("companies:home"))
         self.assertContains(response, "Companies")
         self.assertNotContains(response, reverse("warehouse:home"))
+
+
+class CompanyEmployeesViewTests(TestCase):
+    def setUp(self) -> None:
+        self.company = Company.objects.create(
+            name="Employees Co", cnpj="66666666000166")
+        self.user = User.objects.create_user(
+            username="employees-admin",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.user, company=self.company)
+        self.client.login(username="employees-admin", password="StrongPassword1")
+
+        self.employee_user = User.objects.create_user(
+            username="employees-operator",
+            first_name="Paula",
+            email="paula@example.com",
+            password="StrongPassword1",
+        )
+        Employee.objects.create(user=self.employee_user, company=self.company)
+
+    def test_employees_page_loads_company_employees(self) -> None:
+        response = self.client.get(reverse("companies:employees"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Funcionários cadastrados")
+        self.assertContains(response, "employees-admin")
+        self.assertContains(response, "employees-operator")
+        self.assertContains(response, "paula@example.com")
+
+    def test_employees_page_requires_authentication(self) -> None:
+        self.client.logout()
+        response = self.client.get(reverse("companies:employees"))
+        self.assertEqual(response.status_code, 302)
+        self.assertIn(reverse("companies:login"), response.url)
+
+    def test_employees_page_hides_management_actions_without_permissions(self) -> None:
+        response = self.client.get(reverse("companies:employees"))
+        self.assertEqual(response.status_code, 200)
+        self.assertNotContains(response, "Adicionar funcionário")
+        self.assertNotContains(response, "Salvar alterações")
+        self.assertNotContains(response, "Remover funcionário")
+        self.assertNotContains(response, "Salvar grupos")
+
+    def test_add_employee_requires_permission(self) -> None:
+        response = self.client.post(
+            reverse("companies:employees"),
+            data={
+                "action": "add_employee",
+                "add-first_name": "Ana",
+                "add-last_name": "Silva",
+                "add-username": "ana-employees",
+                "add-email": "ana@example.com",
+                "add-password": "StrongPassword1",
+                "add-password2": "StrongPassword1",
+            },
+        )
+        self.assertEqual(response.status_code, 403)
+        self.assertFalse(User.objects.filter(username="ana-employees").exists())
+
+    def test_add_employee_with_permission(self) -> None:
+        self.user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="add_employee",
+            ),
+        )
+        response = self.client.post(
+            reverse("companies:employees"),
+            data={
+                "action": "add_employee",
+                "add-first_name": "Ana",
+                "add-last_name": "Silva",
+                "add-username": "ana-employees",
+                "add-email": "ana@example.com",
+                "add-password": "StrongPassword1",
+                "add-password2": "StrongPassword1",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        created_user = User.objects.get(username="ana-employees")
+        self.assertTrue(
+            Employee.objects.filter(user=created_user, company=self.company).exists()
+        )
+
+    def test_update_employee_with_permission(self) -> None:
+        self.user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="change_employee",
+            ),
+        )
+        target_employee = Employee.objects.get(user=self.employee_user)
+        response = self.client.post(
+            reverse("companies:employees"),
+            data={
+                "action": "update_employee",
+                "employee_id": target_employee.id,
+                f"edit-{target_employee.id}-first_name": "Paula Updated",
+                f"edit-{target_employee.id}-last_name": "Operator",
+                f"edit-{target_employee.id}-username": "employees-operator",
+                f"edit-{target_employee.id}-email": "paula.updated@example.com",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.employee_user.refresh_from_db()
+        self.assertEqual(self.employee_user.first_name, "Paula Updated")
+        self.assertEqual(self.employee_user.email, "paula.updated@example.com")
+
+    def test_delete_employee_with_permission(self) -> None:
+        self.user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="delete_employee",
+            ),
+        )
+        target_employee = Employee.objects.get(user=self.employee_user)
+        response = self.client.post(
+            reverse("companies:employees"),
+            data={
+                "action": "delete_employee",
+                "employee_id": target_employee.id,
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertFalse(User.objects.filter(pk=self.employee_user.id).exists())
+        self.assertFalse(Employee.objects.filter(pk=target_employee.id).exists())
+
+    def test_update_employee_groups_with_permissions(self) -> None:
+        self.user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="auth",
+                codename="change_user",
+            ),
+            Permission.objects.get(
+                content_type__app_label="auth",
+                codename="view_group",
+            ),
+        )
+        target_employee = Employee.objects.get(user=self.employee_user)
+        viewer_group = Group.objects.create(name="custom_viewer")
+
+        response = self.client.post(
+            reverse("companies:employees"),
+            data={
+                "action": "update_employee_groups",
+                "employee_id": target_employee.id,
+                f"groups-{target_employee.id}-groups": [viewer_group.id],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        self.employee_user.refresh_from_db()
+        self.assertIn(viewer_group, self.employee_user.groups.all())
 
 
 class CompanyConfigurationViewTests(TestCase):
@@ -304,10 +458,16 @@ class CompanyConfigurationViewTests(TestCase):
         response = self.client.get(reverse("companies:company_configuration"))
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "Informações da empresa")
-        self.assertContains(response, "Features da empresa")
         self.assertContains(response, "Funcionários")
+        self.assertNotContains(response, "Features da empresa")
 
     def test_company_configuration_updates_company_and_employees(self) -> None:
+        self.admin_user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="change_company",
+            ),
+        )
         response = self.client.post(
             reverse("companies:company_configuration"),
             data={"action": "update_company",
@@ -322,12 +482,12 @@ class CompanyConfigurationViewTests(TestCase):
             reverse("companies:company_configuration"),
             data={
                 "action": "add_employee",
-                "first_name": "Julia",
-                "last_name": "Santos",
-                "username": "julia",
-                "email": "julia@example.com",
-                "password": "StrongPassword1",
-                "password2": "StrongPassword1",
+                "add-first_name": "Julia",
+                "add-last_name": "Santos",
+                "add-username": "julia",
+                "add-email": "julia@example.com",
+                "add-password": "StrongPassword1",
+                "add-password2": "StrongPassword1",
             },
         )
         self.assertEqual(response.status_code, 302)
@@ -335,6 +495,12 @@ class CompanyConfigurationViewTests(TestCase):
         created_employee = Employee.objects.get(user=created_user)
         self.assertEqual(created_employee.company, self.company)
 
+        self.admin_user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="delete_employee",
+            ),
+        )
         response = self.client.post(
             reverse("companies:company_configuration"),
             data={"action": "remove_employee",
@@ -349,20 +515,83 @@ class CompanyConfigurationViewTests(TestCase):
 
         response = self.client.post(
             reverse("companies:company_configuration"),
-            data={"action": "enable_features",
-                  "feature_enable": [str(self.grant.id)]},
+            data={"action": "toggle_features",
+                  f"feature_{self.grant.id}": "on"},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.grant.refresh_from_db()
+        self.assertFalse(self.grant.enabled)
+
+        manage_features_permission, _ = Permission.objects.get_or_create(
+            content_type=ContentType.objects.get_for_model(Company),
+            codename="manage_company_features",
+            defaults={"name": "Can manage company feature activation"},
+        )
+        self.admin_user.user_permissions.add(manage_features_permission)
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={"action": "toggle_features",
+                  f"feature_{self.grant.id}": "on"},
         )
         self.assertEqual(response.status_code, 302)
         self.grant.refresh_from_db()
         self.assertTrue(self.grant.enabled)
 
+    def test_company_configuration_updates_employee_and_groups_with_permissions(self) -> None:
+        target_user = User.objects.create_user(
+            username="config-operator",
+            first_name="Config",
+            last_name="Operator",
+            email="config-operator@example.com",
+            password="StrongPassword1",
+        )
+        target_employee = Employee.objects.create(
+            user=target_user, company=self.company)
+
+        self.admin_user.user_permissions.add(
+            Permission.objects.get(
+                content_type__app_label="companies",
+                codename="change_employee",
+            ),
+            Permission.objects.get(
+                content_type__app_label="auth",
+                codename="change_user",
+            ),
+            Permission.objects.get(
+                content_type__app_label="auth",
+                codename="view_group",
+            ),
+        )
+        reviewer_group = Group.objects.create(name="config_reviewer")
+
         response = self.client.post(
             reverse("companies:company_configuration"),
-            data={"action": "enable_features"},
+            data={
+                "action": "update_employee",
+                "employee_id": target_employee.id,
+                f"edit-{target_employee.id}-first_name": "Config Updated",
+                f"edit-{target_employee.id}-last_name": "Operator",
+                f"edit-{target_employee.id}-username": "config-operator",
+                f"edit-{target_employee.id}-email": "config-updated@example.com",
+            },
         )
         self.assertEqual(response.status_code, 302)
-        self.grant.refresh_from_db()
-        self.assertTrue(self.grant.enabled)
+        target_user.refresh_from_db()
+        self.assertEqual(target_user.first_name, "Config Updated")
+        self.assertEqual(target_user.email, "config-updated@example.com")
+
+        response = self.client.post(
+            reverse("companies:company_configuration"),
+            data={
+                "action": "update_employee_groups",
+                "employee_id": target_employee.id,
+                f"groups-{target_employee.id}-groups": [reviewer_group.id],
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        target_user.refresh_from_db()
+        self.assertIn(reviewer_group, target_user.groups.all())
 
 
 class StandardGroupsTests(TestCase):
